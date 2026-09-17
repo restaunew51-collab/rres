@@ -1979,6 +1979,26 @@ function AdminChallenges() {
             onChange={(e) => setForm({ ...form, max_winners: Number(e.target.value) })}
           />
           <Textarea label="Récompense" value={form.reward_description} onChange={(e) => setForm({ ...form, reward_description: e.target.value })} rows={2} placeholder="Ex: Repas gratuit pour 2 personnes" />
+          <Select label="Mode de sélection des gagnants" value={form.selection_mode} onChange={(e) => setForm({ ...form, selection_mode: e.target.value as SelectionMode })}>
+            <option value="leaderboard">Classement (top N)</option>
+            <option value="lottery">Tirage au sort</option>
+          </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Type de réduction" value={form.discount_type} onChange={(e) => setForm({ ...form, discount_type: e.target.value as DiscountType, discount_value: e.target.value === 'free_order' ? 0 : form.discount_value })}>
+              <option value="percentage">Pourcentage (%)</option>
+              <option value="fixed">Montant fixe (€)</option>
+              <option value="free_order">Commande gratuite</option>
+            </Select>
+            {form.discount_type !== 'free_order' && (
+              <Input
+                label={form.discount_type === 'percentage' ? 'Valeur (%)' : 'Montant (€)'}
+                type="number"
+                min={0}
+                value={form.discount_value}
+                onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
+              />
+            )}
+          </div>
           <Button className="w-full" onClick={save}>{editing ? 'Enregistrer' : 'Créer le défi'}</Button>
         </div>
       </Modal>
@@ -2008,7 +2028,7 @@ function AdminChallenges() {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-sm text-slate-900">
-                    {formatProgressValue(leaderboardModal!.challenge_type, entry.current_value)}
+                    {formatProgressValue(leaderboardModal?.challenge_type || 'orders_count', entry.current_value)}
                   </p>
                   {entry.completed && <p className="text-xs text-green-600">Objectif atteint</p>}
                 </div>
@@ -2029,52 +2049,81 @@ function AdminChallenges() {
       </Modal>
 
       {/* Distribute rewards modal */}
-      <Modal open={distributeModal} onClose={() => setDistributeModal(false)} title="Distribuer les récompenses" size="md">
-        <div className="space-y-4">
-          {distributeError && (
-            <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-              {distributeError}
+      <Modal open={distributeModal} onClose={() => { setDistributeModal(false); setDistributeSuccess(null); setDistributeError(null); }} title={distributeSuccess ? 'Récompenses distribuées' : 'Distribuer les récompenses'} size="md">
+        {distributeSuccess ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-green-50 border border-green-200">
+              <CheckCircle2 size={20} className="text-green-600 flex-shrink-0" />
+              <p className="text-sm text-green-700 font-medium">
+                {distributeSuccess.length} récompense(s) attribuée(s) avec succès. Les codes ont été générés automatiquement.
+              </p>
             </div>
-          )}
-          <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
-            <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-amber-700">
-              Vous allez attribuer des récompenses aux {distributeForm.numWinners} meilleurs participants du défi « {leaderboardModal?.title} ». Le défi sera marqué comme terminé.
-            </p>
+            <div className="space-y-2">
+              {distributeSuccess.map((w, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center font-bold text-sm text-amber-700">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-slate-900 truncate">{w.full_name}</p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono font-bold text-sm tracking-wider">
+                    {w.reward_code}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button className="w-full" onClick={() => { setDistributeModal(false); setDistributeSuccess(null); setLeaderboardModal(null); }}>
+              Fermer
+            </Button>
           </div>
-          <Input
-            label="Titre de la récompense"
-            value={distributeForm.rewardTitle}
-            onChange={(e) => setDistributeForm({ ...distributeForm, rewardTitle: e.target.value })}
-          />
-          <Textarea
-            label="Description (optionnel)"
-            value={distributeForm.rewardDesc}
-            onChange={(e) => setDistributeForm({ ...distributeForm, rewardDesc: e.target.value })}
-            rows={2}
-          />
-          <div className="grid grid-cols-2 gap-3">
+        ) : (
+          <div className="space-y-4">
+            {distributeError && (
+              <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                {distributeError}
+              </div>
+            )}
+            <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
+              <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-700">
+                Vous allez attribuer des récompenses aux {distributeForm.numWinners} {leaderboardModal?.selection_mode === 'lottery' ? 'participants tirés au sort' : 'meilleurs participants'} du défi « {leaderboardModal?.title} ». Le défi sera marqué comme terminé.
+              </p>
+            </div>
             <Input
-              label="Nombre de gagnants"
-              type="number"
-              min={1}
-              max={50}
-              value={distributeForm.numWinners}
-              onChange={(e) => setDistributeForm({ ...distributeForm, numWinners: Number(e.target.value) })}
+              label="Titre de la récompense"
+              value={distributeForm.rewardTitle}
+              onChange={(e) => setDistributeForm({ ...distributeForm, rewardTitle: e.target.value })}
             />
-            <Input
-              label="Expiration (jours)"
-              type="number"
-              min={1}
-              value={distributeForm.expiresDays}
-              onChange={(e) => setDistributeForm({ ...distributeForm, expiresDays: Number(e.target.value) })}
+            <Textarea
+              label="Description (optionnel)"
+              value={distributeForm.rewardDesc}
+              onChange={(e) => setDistributeForm({ ...distributeForm, rewardDesc: e.target.value })}
+              rows={2}
             />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Nombre de gagnants"
+                type="number"
+                min={1}
+                max={50}
+                value={distributeForm.numWinners}
+                onChange={(e) => setDistributeForm({ ...distributeForm, numWinners: Number(e.target.value) })}
+              />
+              <Input
+                label="Expiration (jours)"
+                type="number"
+                min={1}
+                value={distributeForm.expiresDays}
+                onChange={(e) => setDistributeForm({ ...distributeForm, expiresDays: Number(e.target.value) })}
+              />
+            </div>
+            <Button className="w-full" onClick={confirmDistribute} disabled={distributing}>
+              {distributing ? <LoadingSpinner size={16} /> : <Gift size={16} className="mr-1" />}
+              {distributing ? 'Distribution...' : 'Confirmer la distribution'}
+            </Button>
           </div>
-          <Button className="w-full" onClick={confirmDistribute} disabled={distributing}>
-            {distributing ? <LoadingSpinner size={16} /> : <Gift size={16} className="mr-1" />}
-            {distributing ? 'Distribution...' : 'Confirmer la distribution'}
-          </Button>
-        </div>
+        )}
       </Modal>
     </div>
   );
