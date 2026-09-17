@@ -1802,6 +1802,26 @@ function RewardCard({
               </span>
             )}
           </div>
+          {reward.reward_code && (reward.status === 'claimed' || reward.status === 'available') && (
+            <div className="mt-3 p-3 rounded-lg bg-slate-900 text-white flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Votre code</p>
+                <p className="font-mono font-bold text-lg tracking-widest">{reward.reward_code}</p>
+              </div>
+              <div className="text-right">
+                {reward.discount_type === 'percentage' && reward.discount_value && (
+                  <p className="text-xs text-orange-300">-{Number(reward.discount_value)}%</p>
+                )}
+                {reward.discount_type === 'fixed' && reward.discount_value && (
+                  <p className="text-xs text-orange-300">-{formatPrice(Number(reward.discount_value))}</p>
+                )}
+                {reward.discount_type === 'free_order' && (
+                  <p className="text-xs text-orange-300">Commande gratuite</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {reward.status === 'available' && onClaim && (
             <Button
               size="sm"
@@ -1812,6 +1832,12 @@ function RewardCard({
               {claiming ? <LoadingSpinner size={14} /> : <CheckCircle2 size={14} className="mr-1" />}
               {claiming ? 'Récupération...' : 'Récupérer ma récompense'}
             </Button>
+          )}
+
+          {reward.status === 'claimed' && reward.reward_code && (
+            <p className="text-xs text-slate-400 mt-2">
+              Utilisez ce code lors de votre prochaine commande pour profiter de votre réduction.
+            </p>
           )}
         </div>
       </div>
